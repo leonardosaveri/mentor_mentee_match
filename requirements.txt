@@ -1,2 +1,2 @@
-streamline==1.19.0
+streamline==1.0.5
 pandas==1.5.3
