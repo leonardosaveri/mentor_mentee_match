@@ -2,12 +2,11 @@ import pandas as pd
 from collections import defaultdict
 import streamlit as st
 
-def match_mentors_and_mentees(mentors_file, mentees_file):
+def match_mentors_and_mentees(mentors_df, mentees_df):
     # read in the data from the excel files
-    mentors_df = pd.read_excel(mentors_file, header=0, engine='openpyxl').tail(-1) if mentors_file.name.endswith('.xlsx') else pd.read_csv(mentors_file).tail(-1)
-    mentors_df["name"] = mentors_df["Q1"] + ' ' + mentors_df["Q2"]
     
-    mentees_df = pd.read_excel(mentees_file, header=0, engine='openpyxl').tail(-1) if mentees_file.name.endswith('.xlsx') else pd.read_csv(mentees_file).tail(-1)
+    mentors_df["name"] = mentors_df["Q1"] + ' ' + mentors_df["Q2"]
+
     mentees_df["name"] = mentees_df["Q1"] + ' ' +  mentees_df["Q2"]
 
 
@@ -59,7 +58,7 @@ def app():
     # Set the page title and description
     st.set_page_config(page_title='Mentor-Mentee List', page_icon=':clipboard:', layout='wide')
     st.title('Mentor-Mentee List')
-    st.write('Upload two files (in .csv or .xlsx format) to generate a list of mentors and their mentees.')
+    st.write('Upload two files (in .csv) to generate a list of mentors and their mentees.')
 
     # Create file uploader widgets
     file1 = st.file_uploader('Upload file Mentors', type=['csv', 'xlsx'])
@@ -68,17 +67,16 @@ def app():
     # Check if files have been uploaded
     if file1 and file2:
         # Read the file data into a pandas dataframe
-        file1_df = pd.read_excel(file1).tail(-1) if file1.name.endswith('.xlsx') else pd.read_csv(file1).tail(-1)
-        file2_df = pd.read_excel(file2).tail(-1) if file2.name.endswith('.xlsx') else pd.read_csv(file2).tail(-1)
+        mentor_df = pd.read_excel(file1).tail(-1) if file1.name.endswith('.xlsx') else pd.read_csv(file1, sep=';').tail(-1)
+        st.write('Mentor:')
+        st.write(mentor_df)
 
-        # Display the dataframes
-        st.write('File 1:')
-        st.write(file1_df)
-        st.write('File 2:')
-        st.write(file2_df)
+        mentees_df = pd.read_excel(file2).tail(-1) if file2.name.endswith('.xlsx') else pd.read_csv(file2, sep=';').tail(-1)
+        st.write('Mentees:')
+        st.write(mentees_df)
 
         # Call the function to get the mentor-mentee dictionary
-        mentor_to_mentees = match_mentors_and_mentees(file1, file2)
+        mentor_to_mentees = match_mentors_and_mentees(mentor_df, mentees_df)
 
         # Display the mentor-mentee dictionary
         st.write('Mentor-Mentee List:')
