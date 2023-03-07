@@ -68,8 +68,8 @@ def app():
     # Check if files have been uploaded
     if file1 and file2:
         # Read the file data into a pandas dataframe
-        file1_df = pd.read_excel(file1) if file1.name.endswith('.xlsx') else pd.read_csv(file1)
-        file2_df = pd.read_excel(file2) if file2.name.endswith('.xlsx') else pd.read_csv(file2)
+        file1_df = pd.read_excel(file1, header=0, engine='openpyxl').tail(-1)) if file1.name.endswith('.xlsx') else pd.read_csv(file1)
+        file2_df = pd.read_excel(file2, header=0, engine='openpyxl').tail(-1)) if file2.name.endswith('.xlsx') else pd.read_csv(file2)
 
         # Display the dataframes
         st.write('File 1:')
