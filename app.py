@@ -25,9 +25,9 @@ def match_mentors_and_mentees(mentors_df, mentees_df):
             # calculate the score for this mentor-mentee pair
             score = 0
             if mentee_row['Q4'] == mentor_row['Q4']:
-                score += 10
+                score += 15
             if mentee_row['Q5'] == mentor_row['Q5'] or mentee_row['Q6'] == mentor_row['Q6']:
-                score += 5
+                score += 10
             try:
                 for interest in mentee_row['Q7'].split(','):
                     if interest in mentor_row['Q7']:
