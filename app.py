@@ -63,33 +63,30 @@ def match_mentors_and_mentees(mentors_df, mentees_df):
 # Define the app
 def app():
     # Set the page title and description
-    st.set_page_config(page_title='Mentor-Mentee List', page_icon=':clipboard:', layout='wide')
-    st.title('Mentor-Mentee List')
-    st.write('Upload two files (in .xlsx or .csv) to generate a list of mentors and their mentees.')
+    st.set_page_config(page_title='Matching Mentees to Mentors', page_icon=':clipboard:', layout='wide')
+    st.title('Matching Mentees to Mentors')
+    st.write('Upload here two files (in .xlsx or .csv) to generate a list of mentors and their mentees.')
 
     # Create file uploader widgets
+    st.subheader('File Mentors')
     file1 = st.file_uploader('Upload file Mentors', type=['csv', 'xlsx'])
-    file2 = st.file_uploader('Upload file Mentees', type=['csv', 'xlsx'])
-
-    # Check if files have been uploaded
-    if file1 and file2:
-        # Read the file data into a pandas dataframe
+    if file1:
         mentor_df = pd.read_excel(file1).tail(-1) if file1.name.endswith('.xlsx') else pd.read_csv(file1, sep=';').tail(-1)
-
-        st.header('Data')
-
         if st.checkbox('Show Mentors'):
             st.write('Mentors:')
             st.write(mentor_df)
-        
 
+    
+    st.subheader('File Mentees')
+    file2 = st.file_uploader('Upload file Mentees', type=['csv', 'xlsx'])
+    if file2:
         mentees_df = pd.read_excel(file2).tail(-1) if file2.name.endswith('.xlsx') else pd.read_csv(file2, sep=';').tail(-1)
-
-        
         if st.checkbox('Show Mentees'):
             st.write('Mentees:')
             st.write(mentees_df)
 
+    # Check if files have been uploaded
+    if file1 and file2:
         # Call the function to get the mentor-mentee dictionary
         mentor_to_mentees = match_mentors_and_mentees(mentor_df, mentees_df)
 
