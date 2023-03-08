@@ -25,9 +25,9 @@ def match_mentors_and_mentees(mentors_df, mentees_df):
             # calculate the score for this mentor-mentee pair
             score = 0
             if mentee_row['Q4'] == mentor_row['Q4']:
-                score += 15
-            if mentee_row['Q5'] == mentor_row['Q5'] or mentee_row['Q6'] == mentor_row['Q6']:
                 score += 10
+            if mentee_row['Q5'] == mentor_row['Q5'] or mentee_row['Q6'] == mentor_row['Q6']:
+                score += 5
             try:
                 for interest in mentee_row['Q7'].split(','):
                     if interest in mentor_row['Q7']:
@@ -79,9 +79,19 @@ def app():
         mentor_to_mentees = match_mentors_and_mentees(mentor_df, mentees_df)
 
         # Display the mentor-mentee dictionary
-        st.write('Mentor-Mentee List:')
+        st.header('Mentor-Mentee List')
         for mentor, mentees in mentor_to_mentees.items():
-            st.write(f'{mentor}: {mentees}')
+            st.write(f'**{mentor}**')
+            mentor_data = mentor_df[mentor_df.name == mentor][['Q3', 'Q4', 'Q5', 'Q6', 'Q7']].values.tolist()[0]
+            st.write(mentor_data[0])
+            st.write(f'**Program:** {mentor_data[1]},   **Nationality:** {mentor_data[2]},  **High School:** {mentor_data[3]}')
+            try:
+                mentor_interests = ', '.join(mentor_data[4].split(','))
+            except:
+                mentor_interests = ''
+            st.write(f'Interests: {mentor_interests}')
+            st.write(mentees_df[mentees_df.name.isin(mentees)][['name', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']])
+            st.write('---')
 
 # Run the app
 if __name__ == '__main__':
