@@ -25,8 +25,14 @@ def match_mentors_and_mentees(mentors_df, mentees_df):
             
             # calculate the score for this mentor-mentee pair
             score = 0
-            if mentee_row['Q4'] == mentor_row['Q4']:
-                score += 10
+            try:
+                if '(BGL)' in mentee_row['Q4'] and ('(BIG)' in mentor_row['Q4'] or 'CLMG' in mentor_row['Q4']):
+                    score += 10
+                elif mentee_row['Q4'] == mentor_row['Q4']:
+                    score += 10
+            except:
+                if mentee_row['Q4'] == mentor_row['Q4']:
+                    score += 10
             if mentee_row['Q5'] == mentor_row['Q5'] or mentee_row['Q6'] == mentor_row['Q6']:
                 score += 5
             try:
@@ -129,7 +135,7 @@ def app():
                 except:
                     mentor_interests = ''
                 st.write(f'Interests: {mentor_interests}')
-                st.write(mentees_df[mentees_df.name.isin(mentees)][['name', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']])
+                st.table(mentees_df[mentees_df.name.isin(mentees)][['name', 'Q3', 'Q4', 'Q5', 'Q6', 'Q7']])
                 st.write('---')
 
 
