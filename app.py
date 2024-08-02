@@ -70,7 +70,7 @@ if check_password():
                 except:
                     if mentee_row['Q4'] == mentor_row['Q4']:
                         score += 10
-                if mentee_row['Q6'].lower().startwith('ita') and mentor_row['Q6'].lower().startwith('ita'):
+                if mentee_row['Q6'].lower().startswith('ita') and mentor_row['Q6'].lower().startswith('ita'):
                     score += 5
                 elif mentee_row['Q6'] == mentor_row['Q6']:
                     score += 5
