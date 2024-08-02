@@ -61,7 +61,9 @@ if check_password():
                 # calculate the score for this mentor-mentee pair
                 score = 0
                 try:
-                    if '(BGL)' in mentee_row['Q4'] and ('(BIG)' in mentor_row['Q4'] or 'CLMG' in mentor_row['Q4']):
+                    if 'BGL' in mentee_row['Q4'] and ('BIG' in mentor_row['Q4'] or 'CLMG' in mentor_row['Q4']):
+                        score += 10
+                    elif 'CLEACC' in mentee_row['Q4'] and 'BEMACC' in mentor_row['Q4']:
                         score += 10
                     elif mentee_row['Q4'] == mentor_row['Q4']:
                         score += 10
@@ -159,7 +161,7 @@ if check_password():
                 st.header('Mentor-Mentee List')
                 for mentor, mentees in mentor_to_mentees.items():
                     st.write(f'**{mentor}**')
-                    mentor_data = mentor_df[mentor_df.name == mentor][['Q3', 'Q4', 'Q5', 'Q6', 'Q7']].values.tolist()[0]
+                    mentor_data = mentor_df[mentor_df.name == mentor][['Q3', 'Q4', 'Q6', 'Q5', 'Q7']].values.tolist()[0]
                     st.write(mentor_data[0])
                     st.write(f'**Program:** {mentor_data[1]},   **Nationality:** {mentor_data[2]},  **High School:** {mentor_data[3]}')
                     try:
