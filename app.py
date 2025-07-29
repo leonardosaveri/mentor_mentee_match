@@ -129,7 +129,7 @@ def match_mentors_and_mentees(mentors_df: pd.DataFrame, mentees_df: pd.DataFrame
             mentees_remaining = mentees_remaining.drop(best_idx)
 
     # STEP 2: Assign remaining mentees — try to balance (max 3 or 4 per mentor)
-    max_per_mentor = 2
+    max_per_mentor = len(mentees) // len(mentors) + 1
     for mentee_idx, mentee in mentees.iterrows():
         if mentee["Full name"] in assigned_mentees:
             continue
