@@ -45,44 +45,51 @@ def check_password():
 
 # ────────── 3. MATCHING FUNCTION WITH WEIGHTED SCORES ──────────
 def match_mentors_and_mentees(mentors_df: pd.DataFrame, mentees_df: pd.DataFrame) -> dict:
-    import re
     from collections import defaultdict
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.metrics.pairwise import cosine_similarity
 
-    # Keep only rows with valid emails (contain @)
-    mentors_df = mentors_df[mentors_df["Email Address"].str.contains("@", na=False)].reset_index(drop=True)
-    mentees_df = mentees_df[mentees_df["Email Address"].str.contains("@", na=False)].reset_index(drop=True)
+    mentors_df = (
+        mentors_df[mentors_df["Email Address"].str.contains("@", na=False)]
+        .sort_values(COL_FULLNAME)
+        .drop_duplicates(COL_EMAIL, keep="first")
+        .reset_index(drop=True)
+    )
 
-    # Drop duplicates by email (keep most recent entry)
-    mentors_df = mentors_df.drop_duplicates(subset="Email Address", keep="last").reset_index(drop=True)
-    mentees_df = mentees_df.drop_duplicates(subset="Email Address", keep="last").reset_index(drop=True)
+    mentees_df = (
+        mentees_df[mentees_df["Email Address"].str.contains("@", na=False)]
+        .sort_values(COL_FULLNAME)  # optional: choose which name to keep (e.g., alphabetically)
+        .drop_duplicates(COL_EMAIL, keep="first")
+        .reset_index(drop=True)
+    )
 
+
+    mentors_df[COL_COURSE] = mentors_df[COL_COURSE].replace("CLEF", "BIEF")
 
     mentors = mentors_df.copy().reset_index(drop=True)
     mentees = mentees_df.copy().reset_index(drop=True)
 
-    mentors["name"] = mentors["Full name"]
-    mentees["name"] = mentees["Full name"]
-
-    mentors["Course_l"] = mentors["Bachelor's Degree"].fillna("").str.lower()
-    mentees["Course_l"] = mentees["Bachelor's Degree"].fillna("").str.lower()
-    mentors["HS_l"] = mentors["High School Country"].fillna("").str.lower()
-    mentees["HS_l"] = mentees["High School Country"].fillna("").str.lower()
-    mentors["Res_l"] = mentors["Citizenship"].fillna("").str.lower()
-    mentees["Res_l"] = mentees["Citizenship"].fillna("").str.lower()
+    mentors["Course_l"] = mentors[COL_COURSE].fillna("").str.lower()
+    mentees["Course_l"] = mentees[COL_COURSE].fillna("").str.lower()
+    mentors["HS_l"] = mentors[COL_HS_COUNTRY].fillna("").str.lower()
+    mentees["HS_l"] = mentees[COL_HS_COUNTRY].fillna("").str.lower()
+    mentors["Res_l"] = mentors[COL_CITIZENSHIP].fillna("").str.lower()
+    mentees["Res_l"] = mentees[COL_CITIZENSHIP].fillna("").str.lower()
 
     def parse_languages(s):
-        raw = re.split(r"[;,]\s*", s.lower().strip()) if s else []
-        return {lang for lang in raw if lang and lang != "other"}
+        if not isinstance(s, str):
+            return set()
+        return {
+            lang for lang in re.split(r"[;,]\s*", s.lower().strip())
+            if lang and lang != "Other"
+        }
 
-    mentors["Lang_set"] = mentors["Which languages do you speak fluently?"].apply(parse_languages)
-    mentees["Lang_set"] = mentees["Which languages do you speak fluently?"].apply(parse_languages)
 
-    # TF-IDF for hobbies
+    mentors["Lang_set"] = mentors[COL_LANGUAGES].apply(parse_languages)
+    mentees["Lang_set"] = mentees[COL_LANGUAGES].apply(parse_languages)
+
+    # TF-IDF similarity
     all_interests = pd.concat([
-        mentors["Hobbies and passions (please, list up to 4)"].fillna(""),
-        mentees["Hobbies and passions (please, list up to 4)"].fillna("")
+        mentors[COL_INTERESTS].fillna(""),
+        mentees[COL_INTERESTS].fillna("")
     ])
     tfidf = TfidfVectorizer(stop_words="english")
     tfidf_matrix = tfidf.fit_transform(all_interests.tolist())
@@ -90,88 +97,81 @@ def match_mentors_and_mentees(mentors_df: pd.DataFrame, mentees_df: pd.DataFrame
 
     assignments = defaultdict(list)
     assigned_mentees = set()
+    mentor_capacity = {mentor["Full name"]: 0 for _, mentor in mentors.iterrows()}
 
-    # PHASE 1: Normal matching
+    # STEP 1: Ensure one mentee per mentor (initial assignment)
+    mentees_remaining = mentees.copy()
+    for mentor_idx, mentor in mentors.iterrows():
+        mentor_name = mentor["Full name"]
+        best_score = -1
+        best_idx = None
+        for mentee_idx, mentee in mentees_remaining.iterrows():
+            if not(mentor["Lang_set"] & mentee["Lang_set"]):
+                continue
+            score = 0
+            if mentor["Course_l"] == mentee["Course_l"]:
+                score += 10
+            if mentor["HS_l"] == mentee["HS_l"]:
+                score += 3
+            if mentor["Res_l"] == mentee["Res_l"]:
+                score += 2
+            score += 4 * sim_matrix[mentor_idx, mentee_idx]
+
+            if score > best_score:
+                best_score = score
+                best_idx = mentee_idx
+
+        if best_idx is not None:
+            best_mentee = mentees_remaining.loc[best_idx]
+            assignments[mentor_name].append(best_mentee["Full name"])
+            assigned_mentees.add(best_mentee["Full name"])
+            mentor_capacity[mentor_name] += 1
+            mentees_remaining = mentees_remaining.drop(best_idx)
+
+    # STEP 2: Assign remaining mentees — try to balance (max 3 or 4 per mentor)
+    max_per_mentor = 2
     for mentee_idx, mentee in mentees.iterrows():
-        mentee_name = mentee["name"]
-        mentee_course = mentee["Course_l"]
-        mentee_langs = mentee["Lang_set"]
-
-        eligible = []
-        for mentor_idx, mentor in mentors.iterrows():
-            mentor_name = mentor["name"]
-            if len(assignments[mentor_name]) >= 5:
-                continue
-            if mentor["Course_l"] != mentee_course:
-                continue
-            if not (mentor["Lang_set"] & mentee_langs):
-                continue
-            eligible.append((mentor_idx, mentor))
-
-        if not eligible:
+        if mentee["Full name"] in assigned_mentees:
             continue
 
         best_score = -1
         best_mentor = None
-        for mentor_idx, mentor in eligible:
-            mentor_name = mentor["name"]
-            score = 0
-            if mentor["HS_l"] == mentee["HS_l"]:
-                score += 5
-            if mentor["Res_l"] == mentee["Res_l"]:
-                score += 3
-            sim_score = sim_matrix[mentor_idx, mentee_idx]
-            score += 1 + 4 * sim_score  # map 0–1 → 1–5
+        for mentor_idx, mentor in mentors.iterrows():
+            mentor_name = mentor["Full name"]
+            if mentor_capacity[mentor_name] >= max_per_mentor:
+                continue
 
-            if best_mentor is None or score > best_score or (
-                score == best_score and len(assignments[mentor_name]) < len(assignments[best_mentor])
-            ):
+            score = 0
+            if mentor["Course_l"] == mentee["Course_l"]:
+                score += 10
+            if mentor["HS_l"] == mentee["HS_l"]:
+                score += 3
+            if mentor["Res_l"] == mentee["Res_l"]:
+                score += 2
+            score += 5 * sim_matrix[mentor_idx, mentee_idx]
+
+            if score > best_score:
                 best_score = score
                 best_mentor = mentor_name
 
         if best_mentor:
-            assignments[best_mentor].append(mentee_name)
-            assigned_mentees.add(mentee_name)
+            assignments[best_mentor].append(mentee["Full name"])
+            mentor_capacity[best_mentor] += 1
+            assigned_mentees.add(mentee["Full name"])
 
-    # PHASE 2: Ensure every mentor has at least one mentee
-    for mentor_idx, mentor in mentors.iterrows():
-        mentor_name = mentor["name"]
-        if len(assignments[mentor_name]) > 0:
-            continue  # already has mentee(s)
-
-        # Find unassigned eligible mentees
-        candidates = []
-        for mentee_idx, mentee in mentees.iterrows():
-            mentee_name = mentee["name"]
-            if mentee_name in assigned_mentees:
-                continue
-            if mentor["Course_l"] != mentee["Course_l"]:
-                continue
-            if not (mentor["Lang_set"] & mentee["Lang_set"]):
-                continue
-            candidates.append((mentee_idx, mentee))
-
-        # Pick best scoring match
-        best_score = -1
-        best_mentee = None
-        for mentee_idx, mentee in candidates:
-            score = 0
-            if mentor["HS_l"] == mentee["HS_l"]:
-                score += 5
-            if mentor["Res_l"] == mentee["Res_l"]:
-                score += 3
-            sim_score = sim_matrix[mentor_idx, mentee_idx]
-            score += 1 + 4 * sim_score
-
-            if best_mentee is None or score > best_score:
-                best_score = score
-                best_mentee = mentee
-
-        if best_mentee is not None:
-            assignments[mentor_name].append(best_mentee["name"])
-            assigned_mentees.add(best_mentee["name"])
+    # STEP 3: Final fallback — assign remaining mentees to any mentor with space
+    for mentee_idx, mentee in mentees.iterrows():
+        if mentee["Full name"] in assigned_mentees:
+            continue
+        for mentor_name in mentor_capacity:
+            if mentor_capacity[mentor_name] < max_per_mentor:
+                assignments[mentor_name].append(mentee["Full name"])
+                mentor_capacity[mentor_name] += 1
+                assigned_mentees.add(mentee["Full name"])
+                break
 
     return assignments
+
 
 
 
